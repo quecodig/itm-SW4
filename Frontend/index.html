@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista de Productos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+        :root{
+            --bg:#f6f8fb; --card:#ffffff; --muted:#6b7280; --accent:#2563eb; --danger:#ef4444;
+        }
+        *{box-sizing:border-box}
+        body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:var(--bg); color:#111827; margin:0; padding:2rem; }
+        .container{max-width:1100px; margin:0 auto}
+        header{display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem}
+        h1{font-size:1.6rem; margin:0}
+
+        /* Form */
+        form#form-producto{display:flex; gap:0.5rem; flex-wrap:wrap; background:var(--card); padding:0.75rem; border-radius:8px; box-shadow:0 1px 2px rgba(16,24,40,0.03); margin-bottom:1rem}
+        form input[type=text], form input[type=number]{padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; min-width:150px}
+        form button{background:var(--accent); color:#fff; border:none; padding:0.5rem 0.8rem; border-radius:6px; cursor:pointer}
+        form button#cancelar-edicion{background:#d1d5db; color:#111}
+
+        /* Table */
+        .card{background:var(--card); padding:1rem; border-radius:8px; box-shadow:0 1px 2px rgba(16,24,40,0.03)}
+        table{width:100%; border-collapse:collapse; font-size:0.95rem}
+        thead tr{background:#fafafa}
+        th, td{padding:0.6rem 0.75rem; text-align:left; border-bottom:1px solid #f3f4f6}
+        th{color:var(--muted); font-weight:600; font-size:0.8rem}
+        tbody tr:hover{background:#fbfdff}
+
+        button.action{background:#fff; border:1px solid #e5e7eb; padding:0.35rem 0.5rem; border-radius:6px; cursor:pointer}
+        button.view{background:#eef2ff; color:var(--accent); border:1px solid #e0e7ff}
+        button.delete{background:var(--danger); color:#fff; border:none}
+
+        /* Modal */
+        #modal-detalle{display:none; position:fixed; inset:0; background:rgba(2,6,23,0.5); align-items:center; justify-content:center; padding:1rem}
+        #modal-detalle .modal-inner{background:var(--card); padding:1.2rem; border-radius:10px; max-width:640px; width:100%; box-shadow:0 10px 30px rgba(2,6,23,0.2)}
+        #modal-detalle h2{margin-top:0}
+        #modal-detalle button#modal-cerrar{position:absolute; right:12px; top:12px; background:#f3f4f6; border:none; padding:0.35rem 0.5rem; border-radius:6px; cursor:pointer}
+
+        @media (max-width:700px){
+            form#form-producto{flex-direction:column}
+            th, td{font-size:0.9rem}
+        }
+    </style>
+</head>
+<body>
+    <h1>Productos</h1>
+     <form id="form-producto">
+        <input type="hidden" id="producto-id">
+        <input type="text" id="producto-nombre" placeholder="Nombre" required>
+        <input type="text" id="producto-descripcion" placeholder="Descripción" required>
+        <input type="number" id="producto-precio" placeholder="Precio" required>
+        <input type="number" id="producto-stock" placeholder="Stock" required>
+        <button type="submit">Guardar</button>
+        <button type="button" id="cancelar-edicion" style="display:none;">Cancelar</button>
+    </form>
+    <table id="productos">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <!-- Modal de detalle -->
+    <div id="modal-detalle" style="display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div style="background:#fff; padding:1.2rem; max-width:600px; width:90%; margin:auto; border-radius:6px; position:relative;">
+            <button id="modal-cerrar" style="position:absolute; right:8px; top:8px;">Cerrar</button>
+            <h2 id="detalle-nombre">Producto</h2>
+            <p><strong>ID:</strong> <span id="detalle-id"></span></p>
+            <p><strong>Descripción:</strong> <span id="detalle-descripcion"></span></p>
+            <p><strong>Precio:</strong> <span id="detalle-precio"></span></p>
+            <p><strong>Stock:</strong> <span id="detalle-stock"></span></p>
+        </div>
+    </div>
+    <script>
+        const API = 'http://localhost:8000/api/products/';
+        const tbody = document.querySelector('#productos tbody');
+        const form = document.getElementById('form-producto');
+        const cancelarBtn = document.getElementById('cancelar-edicion');
+
+        const cargarProductos = () =>{
+            var myHeaders = new Headers();
+            myHeaders.append('Content-Type','application/json; charset=UTF-8');
+            fetch(API, { method: 'GET', headers: myHeaders })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.status === 'success' && Array.isArray(data.data)) {
+                        const tbody = document.querySelector('#productos tbody');
+                        for (const producto of data.data) {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${producto.id}</td>
+                                <td>${producto.name}</td>
+                                <td>${producto.description}</td>
+                                <td>${producto.price}</td>
+                                <td>${producto.stock}</td>
+                                <td>
+                                    <button class="action btn-edit" data-id="${producto.id}" data-name="${producto.name}" data-description="${producto.description}" data-price="${producto.price}" data-stock="${producto.stock}">Editar</button>
+                                    <button class="action view btn-view" data-id="${producto.id}">Ver</button>
+                                    <button class="action delete btn-delete" data-id="${producto.id}">Eliminar</button>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        }
+                    } else {
+                        alert('No se pudieron cargar los productos');
+                    }
+                })
+                .catch(() => alert('Error al conectar con la API'));
+        };
+
+        // Delegación de eventos para el tbody: manejar botón Ver
+        tbody.addEventListener('click', function(e){
+            const btn = e.target.closest('.btn-view');
+            if (!btn) return;
+            const id = btn.dataset.id;
+            if (!id) return;
+            // Fetch detalle
+            fetch(API + id)
+                .then(r => r.json())
+                .then(res => {
+                    if (res.status === 'success' && res.data) {
+                        const p = res.data;
+                        document.getElementById('detalle-id').textContent = p.id;
+                        document.getElementById('detalle-nombre').textContent = p.name;
+                        document.getElementById('detalle-descripcion').textContent = p.description;
+                        document.getElementById('detalle-precio').textContent = p.price;
+                        document.getElementById('detalle-stock').textContent = p.stock;
+                        document.getElementById('modal-detalle').style.display = 'flex';
+                    } else {
+                        alert('No se encontró el producto');
+                    }
+                })
+                .catch(() => alert('Error al obtener detalle'));
+        });
+
+        // Cerrar modal
+        document.getElementById('modal-cerrar').addEventListener('click', function(){
+            document.getElementById('modal-detalle').style.display = 'none';
+        });
+
+        // Event delegation para Edit y Delete (ya existe Ver)
+        tbody.addEventListener('click', function(e){
+            const editBtn = e.target.closest('.btn-edit');
+            if (editBtn) {
+                const id = editBtn.dataset.id;
+                document.getElementById('producto-id').value = id;
+                document.getElementById('producto-nombre').value = editBtn.dataset.name;
+                document.getElementById('producto-descripcion').value = editBtn.dataset.description;
+                document.getElementById('producto-precio').value = editBtn.dataset.price;
+                document.getElementById('producto-stock').value = editBtn.dataset.stock;
+                cancelarBtn.style.display = 'inline';
+                return;
+            }
+            const delBtn = e.target.closest('.btn-delete');
+            if (delBtn) {
+                const id = delBtn.dataset.id;
+                if(confirm('¿Seguro que deseas eliminar este producto?')) {
+                    fetch(API + id, { method: 'DELETE' })
+                        .then(res => res.json())
+                        .then(() => {
+                            tbody.innerHTML = '';
+                            cargarProductos()
+                        });
+                }
+                return;
+            }
+        });
+
+         globalThis.eliminarProducto = function(id) {
+            if(confirm('¿Seguro que deseas eliminar este producto?')) {
+                fetch(API + id, { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(() => {
+                        tbody.innerHTML = '';
+                        cargarProductos()
+                    });
+            }
+        }
+
+        cancelarBtn.onclick = function() {
+            form.reset();
+            document.getElementById('producto-id').value = '';
+            cancelarBtn.style.display = 'none';
+        }
+
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            const id = document.getElementById('producto-id').value;
+            const productoUpdate = {
+                name: document.getElementById('producto-nombre').value,
+                description: document.getElementById('producto-descripcion').value,
+                price: Number.parseFloat(document.getElementById('producto-precio').value),
+                stock: Number.parseInt(document.getElementById('producto-stock').value, 10)
+            };
+            if(id) {
+                // Update
+                fetch(API + id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(productoUpdate)
+                })
+                .then(res => res.json())
+                .then(() => {
+                    form.reset();
+                    cancelarBtn.style.display = 'none';
+                    tbody.innerHTML = '';
+                    cargarProductos();
+                });
+            } else {
+                // Create
+                fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(productoUpdate)
+                })
+                .then(res => res.json())
+                .then(() => {
+                    form.reset();
+                    tbody.innerHTML = '';
+                    cargarProductos();
+                });
+            }
+        }
+
+        cargarProductos()
+    </script>
+</body>
+</html>

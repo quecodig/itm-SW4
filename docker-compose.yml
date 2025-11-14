@@ -1,0 +1,54 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: productos_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./dump.sql:/docker-entrypoint-initdb.d/dump.sql
+  db_test:
+    image: mysql:8.0
+    container_name: mysql_test_db
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: productos_test_db
+      MYSQL_USER: test_user
+      MYSQL_PASSWORD: test_password
+    ports:
+      - "3308:3306"
+    tmpfs:
+      - /var/lib/mysql
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: backend_app
+    volumes:
+      - ./Backend:/var/www/html
+    ports:
+      - "8000:80"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=productos_db
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_CHARSET=utf8mb4
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: frontend_app
+    volumes:
+      - ./Frontend:/usr/share/nginx/html
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend

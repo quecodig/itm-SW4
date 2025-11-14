@@ -1,0 +1,6 @@
+projectKey=ITM_ENTREGA4
+serverUrl=https://sonar.quecodigo.lat
+serverVersion=25.10.0.114319
+dashboardUrl=https://sonar.quecodigo.lat/dashboard?id=ITM_ENTREGA4
+ceTaskId=5b5dbe49-2407-40cc-9097-5e9ce2226b80
+ceTaskUrl=https://sonar.quecodigo.lat/api/ce/task?id=5b5dbe49-2407-40cc-9097-5e9ce2226b80
