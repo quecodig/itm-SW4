@@ -36,7 +36,23 @@
 				ResponseHelper::sendError("No data provided for update", 400);
 				return;
 			}
-			$updated = $this->model->update($id, $data);
+			
+			// Mapear campos en español a inglés si es necesario
+			$mappedData = [];
+			$fieldMappings = [
+				'nombre' => 'name',
+				'descripcion' => 'description',
+				'precio' => 'price',
+				'cantidad' => 'stock'
+			];
+			
+			foreach ($data as $key => $value) {
+				// Si existe un mapeo, usar el nombre en inglés, sino mantener el original
+				$finalKey = isset($fieldMappings[$key]) ? $fieldMappings[$key] : $key;
+				$mappedData[$finalKey] = $value;
+			}
+			
+			$updated = $this->model->update($id, $mappedData);
 			if ($updated) {
 				ResponseHelper::sendSuccess("Product updated successfully");
 			} else {
@@ -59,7 +75,23 @@
 				ResponseHelper::sendError("No data provided for creation", 400);
 				return;
 			}
-			$newProduct = $this->model->create($data);
+			
+			// Mapear campos en español a inglés si es necesario
+			$mappedData = [];
+			$fieldMappings = [
+				'nombre' => 'name',
+				'descripcion' => 'description', 
+				'precio' => 'price',
+				'cantidad' => 'stock'
+			];
+			
+			foreach ($data as $key => $value) {
+				// Si existe un mapeo, usar el nombre en inglés, sino mantener el original
+				$finalKey = isset($fieldMappings[$key]) ? $fieldMappings[$key] : $key;
+				$mappedData[$finalKey] = $value;
+			}
+			
+			$newProduct = $this->model->create($mappedData);
 			if ($newProduct) {
 				ResponseHelper::sendSuccess("Product created successfully", 201);
 			} else {
