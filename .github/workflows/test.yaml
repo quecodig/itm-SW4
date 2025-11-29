@@ -63,7 +63,14 @@ jobs:
       - name: Install dependencies and run tests
         run: |
           echo "Installing Composer dependencies..."
-          docker compose exec backend composer install --no-interaction --prefer-dist --no-dev
+          docker compose exec backend composer install --no-interaction --prefer-dist
+          
+          echo "Updating composer lock file if needed..."
+          docker compose exec backend composer update --lock
+          
+          echo "Verifying PHPUnit installation..."
+          docker compose exec backend ls -la vendor/bin/phpunit
+          docker compose exec backend ./vendor/bin/phpunit --version
           
           echo "Running PHPUnit tests..."
           docker compose exec backend ./vendor/bin/phpunit --testdox --log-junit coverage/junit.xml
