@@ -1,53 +1,129 @@
-name: CI - PHP with Docker & MySQL
+name: CI/CD - Sistema CRUD PHP
 
 on:
   push:
-    branches:
-      - master
-      - main
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
   test:
+    name: Testing y Análisis de Calidad
     runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: testing_db
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping --silent"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Docker Compose
-        run: sudo apt-get install docker-compose -y
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Build docker containers
-        run: docker compose build
-
-      - name: Start docker services
-        run: docker compose up -d
-
-      - name: Wait for MySQL to be ready
+      - name: Create environment file
         run: |
-          echo "Esperando MySQL..."
+          echo "Creating .env file for CI"
+          cat > Backend/.env << EOF
+          DB_HOST=db
+          DB_PORT=3306
+          DB_NAME=productos_db
+          DB_USER=user
+          DB_PASS=password
+          DB_TEST_HOST=db_test
+          DB_TEST_PORT=3306
+          DB_TEST_NAME=productos_test_db
+          DB_TEST_USER=test_user
+          DB_TEST_PASS=test_password
+          EOF
+
+      - name: Build and start services
+        run: |
+          echo "Building containers..."
+          docker compose build
+          echo "Starting services..."
+          docker compose up -d
+          echo "Waiting for services to be healthy..."
+
+      - name: Wait for MySQL services to be healthy
+        run: |
+          echo "Waiting for databases to be ready..."
+          sleep 30  # Give initial time for containers to start
+          
+          # Check if containers are running
+          docker compose ps
+          
+          # Wait for main database
           for i in {1..20}; do
-            if docker exec $(docker ps -qf "name=mysql") mysql -uroot -proot -e "SELECT 1;" > /dev/null 2>&1; then
-              echo "MySQL listo!"
+            if docker compose exec db mysql -uuser -ppassword -e "SELECT 1;" >/dev/null 2>&1; then
+              echo "Main database is ready!"
               break
             fi
-            echo "Esperando..."
-            sleep 3
+            echo "Waiting for main database... ($i/20)"
+            sleep 10
+          done
+          
+          # Wait for test database
+          for i in {1..20}; do
+            if docker compose exec db_test mysql -utest_user -ptest_password -e "SELECT 1;" >/dev/null 2>&1; then
+              echo "Test database is ready!"
+              break
+            fi
+            echo "Waiting for test database... ($i/20)"
+            sleep 10
           done
 
-      - name: Run PHPUnit tests inside backend container
-        run: docker compose exec backend vendor/bin/phpunit --testdox
+      - name: Verify database connections
+        run: |
+          echo "Verifying database connections..."
+          docker compose exec db mysql -uuser -ppassword -e "SHOW DATABASES;"
+          docker compose exec db_test mysql -utest_user -ptest_password -e "SHOW DATABASES;"
+
+      - name: Install PHP dependencies and run tests
+        run: |
+          echo "Installing Composer dependencies..."
+          docker compose exec backend composer install --no-interaction --prefer-dist --optimize-autoloader
+          
+          echo "Running PHPUnit tests..."
+          docker compose exec backend ./vendor/bin/phpunit --testdox --log-junit coverage/junit.xml
+          
+          echo "Tests completed successfully!"
+
+      - name: Test API endpoints (optional)
+        continue-on-error: true
+        run: |
+          echo "Testing API endpoints..."
+          sleep 5  # Wait for backend to be fully ready
+          
+          # Test GET /api/products
+          curl -f "http://localhost:8000/api/products" || echo "GET test completed with issues"
+          
+          # Test POST /api/products
+          curl -X POST -H "Content-Type: application/json" \
+               -d '{"nombre":"Test Product","descripcion":"Test Description","precio":99.99,"cantidad":10}' \
+               "http://localhost:8000/api/products" || echo "POST test completed with issues"
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Container Status ==="
+          docker compose ps
+          echo "=== Backend Logs ==="
+          docker compose logs backend
+          echo "=== MySQL Main Logs ==="
+          docker compose logs db
+          echo "=== MySQL Test Logs ==="
+          docker compose logs db_test
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: |
+            Backend/coverage/
+            Backend/phpunit.xml
+          retention-days: 30
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "Cleaning up..."
+          docker compose down -v

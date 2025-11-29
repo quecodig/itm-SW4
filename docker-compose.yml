@@ -3,7 +3,7 @@ services:
     image: mysql:8.0
     container_name: mysql_db
     environment:
-      MYSQL_ROOT_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: productos_db
       MYSQL_USER: user
       MYSQL_PASSWORD: password
@@ -11,11 +11,16 @@ services:
       - "3307:3306"
     volumes:
       - ./dump.sql:/docker-entrypoint-initdb.d/dump.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uuser", "-ppassword"]
+      timeout: 20s
+      retries: 10
+      
   db_test:
     image: mysql:8.0
     container_name: mysql_test_db
     environment:
-      MYSQL_ROOT_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: productos_test_db
       MYSQL_USER: test_user
       MYSQL_PASSWORD: test_password
@@ -23,6 +28,10 @@ services:
       - "3308:3306"
     tmpfs:
       - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-utest_user", "-ptest_password"]
+      timeout: 20s
+      retries: 10
   backend:
     build:
       context: ./Backend
