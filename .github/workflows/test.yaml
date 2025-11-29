@@ -81,6 +81,12 @@ jobs:
           echo "Installing Composer dependencies..."
           docker compose exec backend composer install --no-interaction --prefer-dist --optimize-autoloader
           
+          echo "Regenerating autoloader with custom loader..."
+          docker compose exec backend composer dump-autoload --optimize
+          
+          echo "Testing custom autoloader..."
+          docker compose exec backend php -r "require_once 'vendor/autoload.php'; echo 'Custom autoloader loaded!'; echo PHP_EOL;"
+          
           echo "Running PHPUnit tests..."
           docker compose exec backend ./vendor/bin/phpunit --testdox --log-junit coverage/junit.xml
           
